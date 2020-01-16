@@ -11,6 +11,17 @@ class TwitchAPI
     private $baseUrl = 'https://api.twitch.tv/helix/';
     private $v5 = 'application/vnd.twitchtv.v5+json';
 
+    public function getGames($aGames = [])
+    {
+        $a = [];
+        foreach($aGames as $iGameId)
+            $a[] = 'id='. $iGameId;
+
+        return $this->request(
+            'games?'. implode('&', $a)
+        );
+    }
+
     public function webhook($aData = [])
     {
         $webhook = $this->request(

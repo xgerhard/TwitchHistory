@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Webhook;
 use App\TwitchAPI;
 use App\StreamSession;
+use App\TwitchGame;
 use Exception;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -127,6 +128,29 @@ class WebhookController extends Controller
                             'stream_id' => $oEvent->id
                         ]);
                         Log::error($iUserId .' first time user - (save as started stream)');
+                    }
+
+                    // Check/store game
+                    $oGame = TwitchGame::find($oEvent->game_id);
+                    if(!$oGame)
+                    {
+                        $oTwitchAPI = new TwitchAPI;
+                        $oGames = $oTwitchAPI->getGames([$oEvent->game_id]);
+                        if($oGames && isset($oGames->data) && !empty($oGames->data))
+                        {
+                            foreach($oGames->data as $oGameResult)
+                            {
+                                if($oGameResult->id == $oEvent->game_id)
+                                {
+                                    TwitchGame::create([
+                                        'id' => $oGameResult->id,
+                                        'name' => $oGameResult->name,
+                                        'box_art_url' => $oGameResult->box_art_url
+                                    ]);
+                                    break;
+                                }
+                            }
+                        }
                     }
                 }
             }
