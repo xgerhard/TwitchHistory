@@ -14,4 +14,9 @@ class StreamSession extends Model
         'stream_id',
         'stream_reference'
     ];
+
+    public function TwitchGame()
+    {
+        return $this->hasOne('App\TwitchGame', 'id', 'game_id');
+    }
 }

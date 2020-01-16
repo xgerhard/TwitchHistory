@@ -22,6 +22,11 @@ class TwitchAPI
         );
     }
 
+    public function getVideos($a = [])
+    {
+        return $this->request('videos?'. http_build_query($a));
+    }
+
     public function webhook($aData = [])
     {
         $webhook = $this->request(
