@@ -131,27 +131,7 @@ class WebhookController extends Controller
                     }
 
                     // Check/store game
-                    $oGame = TwitchGame::find($oEvent->game_id);
-                    if(!$oGame)
-                    {
-                        $oTwitchAPI = new TwitchAPI;
-                        $oGames = $oTwitchAPI->getGames([$oEvent->game_id]);
-                        if($oGames && isset($oGames->data) && !empty($oGames->data))
-                        {
-                            foreach($oGames->data as $oGameResult)
-                            {
-                                if($oGameResult->id == $oEvent->game_id)
-                                {
-                                    TwitchGame::create([
-                                        'id' => $oGameResult->id,
-                                        'name' => $oGameResult->name,
-                                        'box_art_url' => $oGameResult->box_art_url
-                                    ]);
-                                    break;
-                                }
-                            }
-                        }
-                    }
+                    $this->storeGame($oEvent->game_id);
                 }
             }
             else
@@ -170,6 +150,31 @@ class WebhookController extends Controller
         {
             // Unexpected response
             Log::error('Unexpected webhook data: '. print_r($oPayload, true));
+        }
+    }
+
+    private function storeGame($iGameId)
+    {
+        $oGame = TwitchGame::find($iGameId);
+        if(!$oGame)
+        {
+            $oTwitchAPI = new TwitchAPI;
+            $oGames = $oTwitchAPI->getGames([$iGameId]);
+            if($oGames && isset($oGames->data) && !empty($oGames->data))
+            {
+                foreach($oGames->data as $oGameResult)
+                {
+                    if($oGameResult->id == $iGameId)
+                    {
+                        TwitchGame::create([
+                            'id' => $oGameResult->id,
+                            'name' => $oGameResult->name,
+                            'box_art_url' => $oGameResult->box_art_url
+                        ]);
+                        break;
+                    }
+                }
+            }
         }
     }
 
