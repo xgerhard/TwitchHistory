@@ -16,5 +16,5 @@ Route::get('/', function () {
 });
 
 Route::get('webhook/create', 'WebhookController@create');
-Route::get('webhook/{method}', 'WebhookController@challenge');
-Route::post('webhook/{method}', 'WebhookController@parse');
+Route::get('webhook/{method}/{userId}', 'WebhookController@challenge');
+Route::post('webhook/{method}/{userId}', 'WebhookController@parse');
