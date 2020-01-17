@@ -4,19 +4,35 @@ namespace App\Http\Controllers;
 
 use App\Webhook;
 use App\TwitchAPI;
-use App\StreamSession;
 use App\TwitchGame;
+use App\TwitchStream;
+use App\TwitchStreamChapter;
+
+use Log;
 use Exception;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Log;
+
 
 class WebhookController extends Controller
 {
+    public function test($iUserId)
+    {
+        try
+        {
+            $oPayload = $this->getDemoData();
+        }
+        catch(Exception $e)
+        {
+            dd($e);
+        }
+    }
+
     public function create()
     {
         try
         {
+            die;
             $oDate = Carbon::now();
             $oTwitchAPI = new TwitchAPI;
 
@@ -85,64 +101,76 @@ class WebhookController extends Controller
     {
         if(isset($oPayload->data))
         {
-            $oLastStreamSession = StreamSession::where('user_id', $iUserId)->latest()->first();
             if(!empty($oPayload->data))
             {
                 foreach($oPayload->data as $oEvent)
                 {
-                    if($oLastStreamSession)
+                    if($oEvent->user_id == $iUserId)
                     {
-                        if($oLastStreamSession->finished || $oLastStreamSession->game_id != $oEvent->game_id)
+                        $oStream = $this->addStream($oEvent->id, $iUserId, $oEvent->started_at, $oEvent->title);
+                        if($oStream)
                         {
-                            // Create new session
-                            $oStreamSession = StreamSession::create([
-                                'user_id' => $iUserId,
-                                'started_at' => Carbon::parse($oEvent->started_at),
-                                'game_id' => $oEvent->game_id,
-                                'finished' => 0,
-                                'stream_reference' => ($oLastStreamSession->finished ? 0 : ($oLastStreamSession->stream_reference == 0 ? $oLastStreamSession->id : $oLastStreamSession->stream_reference)),
-                                'stream_id' => $oEvent->id
-                            ]);
-
-                            // If last session wasnt finished yet, stop it, and create a new session
-                            if(!$oLastStreamSession->finished)
+                            $bCreateChapter = false;
+                            $oLastChapter = $oStream->TwitchStreamChapters->last();
+                            if($oLastChapter)
                             {
-                                Log::error($iUserId .' game changed '. $oLastStreamSession->game_id .' ->' . $oEvent->game_id);
-                                // Stop last session
-                                $oLastStreamSession->finished = 1;
-                                $oLastStreamSession->save();
+                                // Last chapter ended
+                                if($oLastChapter->duration > 0)
+                                    $bCreateChapter = true;
+
+                                // Game changed
+                                elseif($oLastChapter->game_id != $oEvent->game_id)
+                                {
+                                    $oLastChapter = $this->endChapter($oLastChapter);
+                                    $bCreateChapter = true;
+                                    Log::error($iUserId .' game changed '. $oLastChapter->game_id .' ->' . $oEvent->game_id);
+                                }
                             }
                             else
-                                Log::error($iUserId .' stream started');
+                                $bCreateChapter = true;
+
+                            if($bCreateChapter)
+                            {
+                                // Store game
+                                $this->addGame($oEvent->game_id);
+
+                                // Create new chapter
+                                $oStreamChapter = TwitchStreamChapter::create([
+                                    'stream_id' => $oStream->id,
+                                    'created_at' => ($oLastChapter ? Carbon::now() : Carbon::parse($oEvent->started_at)),
+                                    'game_id' => $oEvent->game_id
+                                ]);
+                            }
                         }
                     }
-                    else
-                    {
-                        // First time user
-                        $oStreamSession = StreamSession::create([
-                            'user_id' => $iUserId,
-                            'started_at' => Carbon::parse($oEvent->started_at),
-                            'game_id' => $oEvent->game_id,
-                            'finished' => 0,
-                            'stream_reference' => 0,
-                            'stream_id' => $oEvent->id
-                        ]);
-                        Log::error($iUserId .' first time user - (save as started stream)');
-                    }
-
-                    // Check/store game
-                    $this->storeGame($oEvent->game_id);
                 }
             }
             else
             {
-                // Stream went offline
-                if($oLastStreamSession && !$oLastStreamSession->finished)
+                $oStream = TwitchStream::with('TwitchStreamChapters')->where('user_id', $iUserId)->first();
+                if($oStream)
                 {
-                    // Stop last session
-                    $oLastStreamSession->finished = 1;
-                    $oLastStreamSession->save();
+                    $aChapters = $oStream->TwitchStreamChapters;
+                    $iDuration = 0;
+                    if($aChapters && !empty($aChapters))
+                    {
+                        foreach($aChapters as $oChapter)
+                        {
+                            if(!$oChapter->duration > 0)
+                                $oChapter = $this->endChapter($oChapter);
+
+                            $iDuration += $oChapter->duration;
+                        }
+                    }
+
+                    if($iDuration > 0)
+                    {
+                        $oStream->duration = $iDuration;
+                        $oStream->save();
+                    }
                 }
+
+                // Stream went offline
                 Log::error($iUserId .' stream ended');
             }
         }
@@ -153,7 +181,48 @@ class WebhookController extends Controller
         }
     }
 
-    private function storeGame($iGameId)
+    private function endChapter($oChapter)
+    {
+        $dNow = Carbon::now();
+        $oChapter->duration = $dNow->diffInSeconds($oChapter->created_at);
+        $oChapter->updated_at = $dNow;
+        $oChapter->save();
+        return $oChapter;
+    }
+
+    private function addUser($iUserId, $strUsername)
+    {
+        $oUser = TwitchUser::find($iUserId);
+        if(!$oUser)
+        {
+            $oUser = TwitchUser::create([
+                'id' => $iUserId,
+                'name' => $strUsername
+            ]);
+        }
+        return $oUser;
+    }
+
+    private function addStream($iStreamId, $iUserId, $strStartDate, $strTitle = '')
+    {
+        $oStream = TwitchStream::with('TwitchStreamChapters')->find($iStreamId);
+        if(!$oStream)
+        {
+            $oStream = TwitchStream::create([
+                'id' => $iStreamId,
+                'user_id' => $iUserId,
+                'title' => $strTitle,
+                'created_at' => Carbon::parse($strStartDate)
+            ]);
+            Log::error($iUserId .' stream started');
+        }
+        elseif($oStream->user_id != $iUserId)
+            return false;
+
+        return $oStream;
+    }
+
+    private function addGame($iGameId)
     {
         $oGame = TwitchGame::find($iGameId);
         if(!$oGame)
