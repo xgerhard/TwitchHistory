@@ -87,6 +87,7 @@ class WebhookController extends Controller
     public function parse(Request $request, $strMethod, $iUserId)
     {
         $oPayload = json_decode(file_get_contents('php://input'));
+        Log::error('Webhook user: '. $iUserId);
         Log::error(print_r($oPayload, true));
 
         switch(strtolower($strMethod))
@@ -147,7 +148,11 @@ class WebhookController extends Controller
             }
             else
             {
-                $oStream = TwitchStream::with('TwitchStreamChapters')->where('user_id', $iUserId)->first();
+                $oStream = TwitchStream::with('TwitchStreamChapters')
+                    ->where('user_id', $iUserId)
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+
                 if($oStream)
                 {
                     $aChapters = $oStream->TwitchStreamChapters;
