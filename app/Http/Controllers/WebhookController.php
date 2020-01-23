@@ -42,23 +42,25 @@ class WebhookController extends Controller
             {
                 foreach($aIds as $iId)
                 {
-                    $oWebhook = Webhook::where('topic', 'https://twitchhistory.2g.be/webhook/streamchanged/'. $iId)->first;
+                    $oWebhook = Webhook::where('topic', 'https://twitchhistory.2g.be/webhook/streamchanged/'. $iId)->first();
                     if(!$oWebhook)
                     {
+                        $strSecret = uniqid();
                         $oRegisterWebhook = $oTwitchAPI->webhook([
                             'hub.callback' => 'https://twitchhistory.2g.be/webhook/streamchanged/'. $iId,
                             'hub.mode' => 'subscribe',
                             'hub.topic' => 'https://api.twitch.tv/helix/streams?user_id='. $iId,
                             'hub.lease_seconds' => 864000,
-                            'hub.secret' => 'historytwitch'
+                            'hub.secret' => $strSecret
                         ]);
 
                         Webhook::create([
                             'topic' => 'https://api.twitch.tv/helix/streams?user_id='. $iId,
                             'lease_seconds' => 864000,
-                            'secret' => 'historytwitch',
+                            'secret' => $strSecret,
                             'expires_at' => $oDate->addSeconds(864000)
                         ]);
+                        Log::error('Webhook created: '. $iId);
                     }
                 }
             }
@@ -86,14 +88,38 @@ class WebhookController extends Controller
 
     public function parse(Request $request, $strMethod, $iUserId)
     {
-        $oPayload = json_decode(file_get_contents('php://input'));
+        $body = file_get_contents('php://input');
+
+        if($request->headers->has('X-Hub-Signature'))
+        {
+            $oWebhook = Webhook::where('topic', 'https://api.twitch.tv/helix/streams?user_id='. $iUserId)->first();
+            if($oWebhook)
+            {
+                $strOurHmac = hash_hmac('sha256', $body, $oWebhook->secret);
+                $aSignature = explode('=', $request->header('X-Hub-Signature'));
+                $strTheirHmac = end($aSignature);
+
+                if($strOurHmac !== $strTheirHmac)
+                {
+                    Log::error('Verify webhook '. print_r([
+                        'title' => 'Refused webhook, HMAC mismatch',
+                        'id' => $iUserId,
+                        'our' => $strOurHmac,
+                        'their' => $strTheirHmac
+                    ], true));
+
+                    return;
+                }
+            }
+        }
+
         Log::error('Webhook user: '. $iUserId);
-        Log::error(print_r($oPayload, true));
+        Log::error(print_r(json_decode($body), true));
 
         switch(strtolower($strMethod))
         {
             case 'streamchanged';
-                $this->streamChanged($iUserId, $oPayload);
+                $this->streamChanged($iUserId, json_decode($body));
             break;
         }
     }
@@ -142,6 +168,17 @@ class WebhookController extends Controller
                                     'game_id' => $oEvent->game_id
                                 ]);
                             }
+
+                            // Get the vod Id if it hasn't been set yet
+                            if(!$oStream->vod_id)
+                            {
+                                $iVodId = $this->getVodId($iUserId, $oStream->id);
+                                if($iVodId)
+                                {
+                                    $oStream->vod_id = $iVodId;
+                                    $oStream->save();
+                                }
+                            }
                         }
                     }
                 }
@@ -155,17 +192,28 @@ class WebhookController extends Controller
 
                 if($oStream)
                 {
+                    Log::error($iUserId .' - '. $oStream->id .' - stream end debug - Stream found');
+                    if($oStream->duration > 0)
+                        Log::error($iUserId .' - '. $oStream->id .' - stream ended but with duration. Did the stream restart? ('. $oStream->duration .')');
+
                     $aChapters = $oStream->TwitchStreamChapters;
                     $iDuration = 0;
                     if($aChapters && !empty($aChapters))
                     {
+                        Log::error($iUserId .' - '. $oStream->id .' - stream end debug - Chapters found');
                         foreach($aChapters as $oChapter)
                         {
                             if(!$oChapter->duration > 0)
                                 $oChapter = $this->endChapter($oChapter);
 
+                            Log::error($iUserId .' - '. $oStream->id .' - stream end debug - Chapter '. $oChapter->id .' - '. $oChapter->duration);
+
                             $iDuration += $oChapter->duration;
                         }
+                    }
+                    else
+                    {
+                        Log::error($iUserId .' - '. $oStream->id .' - stream end debug - No chapters found');
                     }
 
                     if($iDuration > 0)
@@ -173,6 +221,10 @@ class WebhookController extends Controller
                         $oStream->duration = $iDuration;
                         $oStream->save();
                     }
+                }
+                else
+                {
+                    Log::error($iUserId .' - stream end debug - No stream found');
                 }
 
                 // Stream went offline
@@ -250,6 +302,26 @@ class WebhookController extends Controller
                 }
             }
         }
+    }
+
+    private function getVodId($iUserId, $iStreamId)
+    {
+        $oTwitchAPI = new TwitchAPI;
+        $oVideos = $oTwitchAPI->getVideos([
+            'user_id' => $iUserId,
+            'type' => 'archive',
+            'first' => 10
+        ]);
+
+        if($oVideos && isset($oVideos->data) && !empty($oVideos->data))
+        {
+            foreach($oVideos->data as $oVideo)
+            {
+                if(trim($oVideo->thumbnail_url) == '' || strpos($oVideo->thumbnail_url, '_'. $iStreamId .'_') !== false)
+                    return $oVideo->id;
+            }
+        }
+        return false;
     }
 
     private function getDemoData()

@@ -13,11 +13,12 @@ class TwitchStream extends Model
         'created_at',
         'user_id',
         'title',
-        'duration'
+        'duration',
+        'vod_id'
     ];
 
     public function TwitchStreamChapters()
     {
-        return $this->hasMany('App\TwitchStreamChapter', 'stream_id', 'id');
+        return $this->hasMany('App\TwitchStreamChapter', 'stream_id', 'id')->with('TwitchGame');
     }
 }
