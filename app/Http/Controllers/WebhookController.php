@@ -13,7 +13,6 @@ use Exception;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
-
 class WebhookController extends Controller
 {
     public function test($iUserId)
@@ -28,21 +27,66 @@ class WebhookController extends Controller
         }
     }
 
-    public function create()
+    public function checkWebhooks()
     {
         try
         {
-            die;
-            $oDate = Carbon::now();
-            $oTwitchAPI = new TwitchAPI;
+            $oDateTomorrow = Carbon::tomorrow();
+            $oWebhooks = Webhook::where('expires_at', 'like', $oDateTomorrow->format('Y-m-d') .'%')->limit(15)->get();
 
-            $aIds = [41200623, 36769016, 71190292, 26490481, 54739364];
+            if($oWebhooks->count() > 0)
+            {
+                $iLease = 864000;
+                $oTwitchAPI = new TwitchAPI;
+                $oDate = Carbon::new();
+                $oDate->addSeconds($iLease);
+
+                foreach($oWebhooks as $oWebhook)
+                {
+                    Log::info('[Webhook check] Webhook '. $oWebhook->id .' is expiring soon..');
+                    $oRegisterWebhook = $oTwitchAPI->webhook([
+                        'hub.callback' => 'https://twitchhistory.2g.be/webhook/streamchanged/'. $oWebhook->user_id,
+                        'hub.mode' => 'subscribe',
+                        'hub.topic' => 'https://api.twitch.tv/helix/streams?user_id='. $oWebhook->user_id,
+                        'hub.lease_seconds' => $iLease,
+                        'hub.secret' => $oWebhook->secret
+                    ]);
+
+                    if($oRegisterWebhook)
+                    {
+                        $oWebhook->expires_at = $oDate;
+                        $oWebhook->lease_seconds = $iLease;
+                        $oWebhook->save();
+                        Log::info('[Webhook check] Webhook '. $oWebhook->id .' succesfully resubscribed');
+                    }
+                }
+            }
+            else
+                Log::info('[Webhook check] All webhooks up to date');
+        }
+        catch(Exception $e)
+        {
+            Log::error($e->getMessage());
+        }
+    }
+
+    public function createWebhook($aIds)
+    {
+        try
+        {
+            if(!is_array($aIds))
+                $aIds = [$aIds];
 
             if(!empty($aIds))
             {
+                $iLease = 864000;
+                $oTwitchAPI = new TwitchAPI;
+                $oDate = Carbon::now();
+                $oDate->addSeconds($iLease);
+
                 foreach($aIds as $iId)
                 {
-                    $oWebhook = Webhook::where('topic', 'https://twitchhistory.2g.be/webhook/streamchanged/'. $iId)->first();
+                    $oWebhook = Webhook::where('topic', 'https://api.twitch.tv/helix/streams?user_id='. $iId)->first();
                     if(!$oWebhook)
                     {
                         $strSecret = uniqid();
@@ -50,24 +94,29 @@ class WebhookController extends Controller
                             'hub.callback' => 'https://twitchhistory.2g.be/webhook/streamchanged/'. $iId,
                             'hub.mode' => 'subscribe',
                             'hub.topic' => 'https://api.twitch.tv/helix/streams?user_id='. $iId,
-                            'hub.lease_seconds' => 864000,
+                            'hub.lease_seconds' => $iLease,
                             'hub.secret' => $strSecret
                         ]);
 
-                        Webhook::create([
-                            'topic' => 'https://api.twitch.tv/helix/streams?user_id='. $iId,
-                            'lease_seconds' => 864000,
-                            'secret' => $strSecret,
-                            'expires_at' => $oDate->addSeconds(864000)
-                        ]);
-                        Log::error('Webhook created: '. $iId);
+                        if($oRegisterWebhook)
+                        {
+                            $oWebhook = Webhook::create([
+                                'topic' => 'https://api.twitch.tv/helix/streams?user_id='. $iId,
+                                'lease_seconds' => $iLease,
+                                'secret' => $strSecret,
+                                'expires_at' => $oDate
+                            ]);
+                            Log::info('[Webhook create] Webhook '. $oWebhook->id .' succesfully created');
+                        }
                     }
+                    else
+                        Log::error('[Webhook create] Webhook for user '. $iId .' already exists');
                 }
             }
         }
         catch(Exception $e)
         {
-            Log::error($e);
+            Log::error($e->getMessage());
         }
     }
 
@@ -113,8 +162,8 @@ class WebhookController extends Controller
             }
         }
 
-        Log::error('Webhook user: '. $iUserId);
-        Log::error(print_r(json_decode($body), true));
+        Log::info('Webhook user: '. $iUserId);
+        Log::info(print_r(json_decode($body), true));
 
         switch(strtolower($strMethod))
         {
@@ -150,7 +199,7 @@ class WebhookController extends Controller
                                 {
                                     $oLastChapter = $this->endChapter($oLastChapter);
                                     $bCreateChapter = true;
-                                    Log::error($iUserId .' game changed '. $oLastChapter->game_id .' ->' . $oEvent->game_id);
+                                    Log::info($iUserId .' game changed '. $oLastChapter->game_id .' ->' . $oEvent->game_id);
                                 }
                             }
                             else
@@ -191,44 +240,10 @@ class WebhookController extends Controller
                     ->first();
 
                 if($oStream)
-                {
-                    Log::error($iUserId .' - '. $oStream->id .' - stream end debug - Stream found');
-                    if($oStream->duration > 0)
-                        Log::error($iUserId .' - '. $oStream->id .' - stream ended but with duration. Did the stream restart? ('. $oStream->duration .')');
-
-                    $aChapters = $oStream->TwitchStreamChapters;
-                    $iDuration = 0;
-                    if($aChapters && !empty($aChapters))
-                    {
-                        Log::error($iUserId .' - '. $oStream->id .' - stream end debug - Chapters found');
-                        foreach($aChapters as $oChapter)
-                        {
-                            if(!$oChapter->duration > 0)
-                                $oChapter = $this->endChapter($oChapter);
-
-                            Log::error($iUserId .' - '. $oStream->id .' - stream end debug - Chapter '. $oChapter->id .' - '. $oChapter->duration);
-
-                            $iDuration += $oChapter->duration;
-                        }
-                    }
-                    else
-                    {
-                        Log::error($iUserId .' - '. $oStream->id .' - stream end debug - No chapters found');
-                    }
-
-                    if($iDuration > 0)
-                    {
-                        $oStream->duration = $iDuration;
-                        $oStream->save();
-                    }
-                }
-                else
-                {
-                    Log::error($iUserId .' - stream end debug - No stream found');
-                }
+                   $this->endStream($oStream);
 
                 // Stream went offline
-                Log::error($iUserId .' stream ended');
+                Log::info($iUserId .' stream ended');
             }
         }
         else
@@ -236,6 +251,37 @@ class WebhookController extends Controller
             // Unexpected response
             Log::error('Unexpected webhook data: '. print_r($oPayload, true));
         }
+    }
+
+    private function endStream($oStream)
+    {
+        Log::info('[Stream end] '. $oStream->user_id .' - '. $oStream->id .' - Stream found');
+        if($oStream->duration > 0)
+            Log::info('[Stream end] '. $oStream->user_id .' - '. $oStream->id .' - Stream ended with duration. Did the stream restart? ('. $oStream->duration .')');
+
+        $aChapters = $oStream->TwitchStreamChapters;
+        $iDuration = 0;
+        if($aChapters && !empty($aChapters))
+        {
+            Log::info('[Stream end] '. $oStream->user_id .' - '. $oStream->id .' - Chapters found');
+            foreach($aChapters as $oChapter)
+            {
+                if(!$oChapter->duration > 0)
+                    $oChapter = $this->endChapter($oChapter);
+
+                Log::info('[Stream end] '. $oStream->user_id .' - '. $oStream->id .' - Chapter '. $oChapter->id .' - '. $oChapter->duration);
+                $iDuration += $oChapter->duration;
+            }
+        }
+        else
+            Log::error('[Stream end] '. $oStream->user_id .' - '. $oStream->id .' - No chapters found');
+
+        if($iDuration > 0)
+        {
+            $oStream->duration = $iDuration;
+            $oStream->save();
+        }
+        return $oStream;
     }
 
     private function endChapter($oChapter)

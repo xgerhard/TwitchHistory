@@ -17,7 +17,11 @@ Route::get('/', function () {
 
 Route::get('stats/{userId}', 'StatsController@index');
 
+Route::get('app/auth', 'AppController@auth');
+Route::get('app/webhooks', 'AppController@webhooks');
+
 Route::get('webhook/test/{userId}', 'WebhookController@test');
+Route::get('webhook/check', 'WebhookController@checkWebhooks');
 Route::get('webhook/create', 'WebhookController@create');
 Route::get('webhook/{method}/{userId}', 'WebhookController@challenge');
 Route::post('webhook/{method}/{userId}', 'WebhookController@parse');
