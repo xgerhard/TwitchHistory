@@ -130,7 +130,7 @@ class WebhookController extends Controller
             {
                 // Verify webhook
                 echo urldecode($request->get('hub_challenge'));
-                Log::error('Verified webhook: '. $strTopic);
+                Log::info('Verified webhook: '. $strTopic);
             }
         }
     }
