@@ -11,6 +11,15 @@ class TwitchAPI
     private $baseUrl = 'https://api.twitch.tv/helix/';
     private $v5 = 'application/vnd.twitchtv.v5+json';
 
+    public function getWebhookSubscriptions()
+    {
+        return $this->request(
+            'webhooks/subscriptions',
+            false,
+            ['Authorization' => 'Bearer '. $_ENV['APP_ACCESS_TOKEN']]
+        );
+    }
+
     public function getGames($aGames = [])
     {
         $a = [];
