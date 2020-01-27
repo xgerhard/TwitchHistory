@@ -41,9 +41,9 @@ class WebhookController extends Controller
                 $oDate = Carbon::new();
                 $oDate->addSeconds($iLease);
 
+                Log::info('[Webhook check] '. $oWebhooks->count() .' webhooks are expiring soon..');
                 foreach($oWebhooks as $oWebhook)
                 {
-                    Log::info('[Webhook check] Webhook '. $oWebhook->id .' is expiring soon..');
                     $oRegisterWebhook = $oTwitchAPI->webhook([
                         'hub.callback' => 'https://twitchhistory.2g.be/webhook/streamchanged/'. $oWebhook->user_id,
                         'hub.mode' => 'subscribe',
