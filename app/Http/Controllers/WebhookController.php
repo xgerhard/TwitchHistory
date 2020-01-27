@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Webhook;
 use App\TwitchAPI;
 use App\TwitchGame;
+use App\TwitchUser;
 use App\TwitchStream;
 use App\TwitchStreamChapter;
 
@@ -183,7 +184,7 @@ class WebhookController extends Controller
                 {
                     if($oEvent->user_id == $iUserId)
                     {
-                        $oStream = $this->addStream($oEvent->id, $iUserId, $oEvent->started_at, $oEvent->title);
+                        $oStream = $this->addStream($oEvent->id, $iUserId, $oEvent->user_name, $oEvent->started_at, $oEvent->title);
                         if($oStream)
                         {
                             $bCreateChapter = false;
@@ -293,20 +294,25 @@ class WebhookController extends Controller
         return $oChapter;
     }
 
-    private function addUser($iUserId, $strUsername)
+    private function addUser($iUserId, $strUserName)
     {
         $oUser = TwitchUser::find($iUserId);
         if(!$oUser)
         {
             $oUser = TwitchUser::create([
                 'id' => $iUserId,
-                'name' => $strUsername
+                'name' => $strUserName
             ]);
+        }
+        elseif($oUser->name != $strUserName)
+        {
+            $oUser->name = $strUserName;
+            $oUser->save();
         }
         return $oUser;
     }
 
-    private function addStream($iStreamId, $iUserId, $strStartDate, $strTitle = '')
+    private function addStream($iStreamId, $iUserId, $strUserName, $strStartDate, $strTitle)
     {
         $oStream = TwitchStream::with('TwitchStreamChapters')->find($iStreamId);
         if(!$oStream)
@@ -317,11 +323,10 @@ class WebhookController extends Controller
                 'title' => $strTitle,
                 'created_at' => Carbon::parse($strStartDate)
             ]);
+
+            $this->addUser($iUserId, $strUserName);
             Log::error($iUserId .' stream started');
         }
-        elseif($oStream->user_id != $iUserId)
-            return false;
-
         return $oStream;
     }
 
