@@ -35,10 +35,28 @@ class StatsController extends Controller
                     echo 'Chapters:<ul>';
                     foreach($oChapters as $oChapter)
                     {
-                        $dStart = Carbon::parse($oChapter->created_at);
-                        $iChapterDuration = $oChapter->duration == 0 ? $dNow->diffInSeconds($dStart) : $oChapter->duration;
+                        $dChapterStart = Carbon::parse($oChapter->created_at);
 
-                        echo '<li>'. $oChapter->TwitchGame->name . ' ('.  $this->secondsToTime($iChapterDuration, true) .')'. ($oChapter->duration == 0 ? ' [Currently playing]' : '') . '</li>';
+                        // Set Vod timestamp
+                        $strVodUrl = false;
+                        if($oStream->vod_id)
+                        {
+                            $strVodUrl = 'https://www.twitch.tv/videos/'. $oStream->vod_id;
+                            if($oStream->created_at != $oChapter->created_at)
+                            {
+                                $iDurationFromStart = $dChapterStart->diffInSeconds($dStreamStart);
+                                if($iDurationFromStart > 0)
+                                {
+                                    $strVodTimeStamp = $this->secondsToVodTimeStamp($iDurationFromStart);
+                                    if($strVodTimeStamp)
+                                        $strVodUrl .= '?t='. $strVodTimeStamp;
+                                }
+                            }
+                        }
+
+                        $iChapterDuration = $oChapter->duration == 0 ? $dNow->diffInSeconds($dChapterStart) : $oChapter->duration;
+
+                        echo '<li>'. ($strVodUrl ? '<a href="'. $strVodUrl .'" target="blank">'. $oChapter->TwitchGame->name .'</a>' : $oChapter->TwitchGame->name) . ' ('.  $this->secondsToTime($iChapterDuration, true) .')'. ($oChapter->duration == 0 ? ' [Currently playing]' : '') . '</li>';
 
                         if(isset($aGames[$oChapter->game_id]))
                         {
@@ -63,7 +81,6 @@ class StatsController extends Controller
                         echo 'Games:<ul>';
                         foreach($aGames as $oGame)
                         {
-
                             echo '<li>'. $oGame->name . ' ('. $this->secondsToTime($oGame->duration, true) .') ('. $this->getPercentage($iStreamDuration, $oGame->duration) .'%)</li>';
                         }
                         echo '</ul>';
@@ -128,5 +145,39 @@ class StatsController extends Controller
         ];
 
         return $bString ? $this->timeToString($o) : $o;
+    }
+
+    public function secondsToVodTimeStamp($inputSeconds)
+    {
+        $secondsInAMinute = 60;
+        $secondsInAnHour = 60 * $secondsInAMinute;
+        $secondsInADay = 24 * $secondsInAnHour;
+
+        // extract hours
+        $hourSeconds = $inputSeconds % $secondsInADay;
+        $hours = floor($inputSeconds / $secondsInAnHour);
+
+        // extract minutes
+        $minuteSeconds = $hourSeconds % $secondsInAnHour;
+        $minutes = floor($minuteSeconds / $secondsInAMinute);
+
+        // extract the remaining seconds
+        $remainingSeconds = $minuteSeconds % $secondsInAMinute;
+        $seconds = ceil($remainingSeconds);
+
+        // return the final array
+        $a = [
+            'h' => (int) $hours,
+            'm' => (int) $minutes,
+            's' => (int) $seconds
+        ];
+
+        $s = '';
+        foreach($a as $k => $v)
+        {
+            if($v > 0)
+                $s .= $v . $k;
+        }
+        return $s == '' ? false : $s;
     }
 }
