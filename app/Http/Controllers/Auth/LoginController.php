@@ -4,8 +4,12 @@ namespace App\Http\Controllers\Auth;
 
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+
+use Log;
 use Socialite;
 use Exception;
+use App\TwitchUser;
+use App\TwitchWebhookHandler;
 
 class LoginController extends Controller
 {
@@ -29,17 +33,40 @@ class LoginController extends Controller
         try
         {
             if(!$request->input('code'))
-                echo 'y u deny';
+            {
+                // This is not really nice, but works for now, on deny just send em back
+                return Socialite::driver('twitch')->redirect();
+            }
             else
             {
                 $oUser = Socialite::driver('twitch')->user();
-                if(isset($oUser->name))
-                    echo $oUser->name;
+                if(isset($oUser->id))
+                {
+                    $oTwitchUser = TwitchUser::find($oUser->id);
+                    if(!$oTwitchUser)
+                    {
+                        $oWebhookHandler = new TwitchWebhookHandler();
+                        $oNewWebhook = $oWebhookHandler->createWebhook(
+                            $oWebhookHandler->getStreamChangedTopicUrl($oUser->id),
+                            $oWebhookHandler->getStreamChangedCallbackUrl($oUser->id)
+                        );
+
+                        if($oNewWebhook)
+                        {
+                            TwitchUser::create([
+                                'id' => $oUser->id,
+                                'name' => $oUser->name
+                            ]);
+                        }
+                    }
+                    return redirect('stats/'. $oUser->id);
+                }
             }
         }
         catch(Exception $e)
         {
-            echo $e->getMessage();
+            Log::error($e);
+            return $e->getMessage();
         }
     }
 }

@@ -71,56 +71,6 @@ class WebhookController extends Controller
         }
     }
 
-    public function createWebhook($aIds)
-    {
-        try
-        {
-            if(!is_array($aIds))
-                $aIds = [$aIds];
-
-            if(!empty($aIds))
-            {
-                $iLease = 864000;
-                $oTwitchAPI = new TwitchAPI;
-                $oDate = Carbon::now();
-                $oDate->addSeconds($iLease);
-
-                foreach($aIds as $iId)
-                {
-                    $oWebhook = Webhook::where('topic', 'https://api.twitch.tv/helix/streams?user_id='. $iId)->first();
-                    if(!$oWebhook)
-                    {
-                        $strSecret = uniqid();
-                        $oRegisterWebhook = $oTwitchAPI->webhook([
-                            'hub.callback' => 'https://twitchhistory.2g.be/webhook/streamchanged/'. $iId,
-                            'hub.mode' => 'subscribe',
-                            'hub.topic' => 'https://api.twitch.tv/helix/streams?user_id='. $iId,
-                            'hub.lease_seconds' => $iLease,
-                            'hub.secret' => $strSecret
-                        ]);
-
-                        if($oRegisterWebhook)
-                        {
-                            $oWebhook = Webhook::create([
-                                'topic' => 'https://api.twitch.tv/helix/streams?user_id='. $iId,
-                                'lease_seconds' => $iLease,
-                                'secret' => $strSecret,
-                                'expires_at' => $oDate
-                            ]);
-                            Log::info('[Webhook create] Webhook '. $oWebhook->id .' succesfully created');
-                        }
-                    }
-                    else
-                        Log::error('[Webhook create] Webhook for user '. $iId .' already exists');
-                }
-            }
-        }
-        catch(Exception $e)
-        {
-            Log::error($e->getMessage());
-        }
-    }
-
     public function challenge(Request $request, $strMethod, $iUserId)
     {
         if($request->has('hub_topic') && $request->has('hub_challenge'))
