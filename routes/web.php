@@ -15,6 +15,9 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+Route::get('login', 'Auth\LoginController@redirectToProvider');
+Route::get('login/callback', 'Auth\LoginController@handleProviderCallback');
+
 Route::get('stats/{userId}', 'StatsController@index');
 
 Route::get('app/auth', 'AppController@auth');
