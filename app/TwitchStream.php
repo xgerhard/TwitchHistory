@@ -21,4 +21,9 @@ class TwitchStream extends Model
     {
         return $this->hasMany('App\TwitchStreamChapter', 'stream_id', 'id')->with('TwitchGame');
     }
+
+    public function TwitchUser()
+    {
+        return $this->hasOne('App\TwitchUser', 'id', 'user_id');
+    }
 }
