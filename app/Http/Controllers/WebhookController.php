@@ -267,6 +267,7 @@ class WebhookController extends Controller
         $oStream = TwitchStream::with('TwitchStreamChapters')->find($iStreamId);
         if(!$oStream)
         {
+            $this->addUser($iUserId, $strUserName);
             $oStream = TwitchStream::create([
                 'id' => $iStreamId,
                 'user_id' => $iUserId,
@@ -274,7 +275,6 @@ class WebhookController extends Controller
                 'created_at' => Carbon::parse($strStartDate)
             ]);
 
-            $this->addUser($iUserId, $strUserName);
             Log::error($iUserId .' stream started');
         }
         return $oStream;
