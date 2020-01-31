@@ -12,4 +12,9 @@ class TwitchUser extends Model
         'id',
         'name'
     ];
+
+    public function TwitchStreams()
+    {
+        return $this->hasMany('App\TwitchStream', 'user_id', 'id')->orderBy('created_at', 'desc')->with('TwitchStreamChapters');
+    }
 }

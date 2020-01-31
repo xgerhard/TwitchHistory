@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\TwitchStream;
 use App\TwitchAPI;
+use App\TwitchUser;
 
 use Exception;
 use Carbon\Carbon;
@@ -15,36 +16,33 @@ class StatsController extends Controller
     public function index(Request $request, $iUserId)
     {
         $dNow = Carbon::now();
+        $iTotalStreamDuration = 0;
+        $aGames = [];
 
-        $oStreams = TwitchStream::where('user_id', $iUserId)->orderBy('created_at', 'desc')->with('TwitchStreamChapters')->get();
-        if($oStreams->count() > 0)
+        $oUser = TwitchUser::with('TwitchStreams')->findOrFail($iUserId);
+        if($oUser->TwitchStreams->count() > 0)
         {
-            foreach($oStreams as $oStream)
+            foreach($oUser->TwitchStreams as $oStream)
             {
-                $dStreamStart = Carbon::parse($oStream->created_at);
-                $iStreamDuration = $oStream->duration == 0 ? $dNow->diffInSeconds($dStreamStart) : $oStream->duration;
+                $aStreamGames = [];
 
-                echo '<h3>'. $dStreamStart->format('d-m-Y') .' '. $oStream->title . ($oStream->duration == 0 ? ' [Live]' : '') .'</h3>';
-                echo '<p>'. ($oStream->duration == 0 ? 'Stream uptime' : 'Streamed for'). ': '. $this->secondsToTime($iStreamDuration, true) .'</p>';
-
-                $oChapters = $oStream->TwitchStreamChapters;
-                $aGames = [];
-
-                if($oChapters && $oChapters->count() > 0)
+                // Calc total stream duration
+                $iStreamDuration = $oStream->duration == 0 ? $dNow->diffInSeconds($oStream->created_at) : $oStream->duration;
+                $iTotalStreamDuration += $iStreamDuration;
+                $oStream->durationTime = $this->secondsToTime($iStreamDuration, true);
+                
+                if($oStream->TwitchStreamChapters && $oStream->TwitchStreamChapters->count() > 0)
                 {
-                    echo 'Chapters:<ul>';
-                    foreach($oChapters as $oChapter)
+                    foreach($oStream->TwitchStreamChapters as $oChapter)
                     {
-                        $dChapterStart = Carbon::parse($oChapter->created_at);
-
                         // Set Vod timestamp
-                        $strVodUrl = false;
+                        $strVodUrl = null;
                         if($oStream->vod_id)
                         {
                             $strVodUrl = 'https://www.twitch.tv/videos/'. $oStream->vod_id;
                             if($oStream->created_at != $oChapter->created_at)
                             {
-                                $iDurationFromStart = $dChapterStart->diffInSeconds($dStreamStart);
+                                $iDurationFromStart = $oChapter->created_at->diffInSeconds($oStream->created_at);
                                 if($iDurationFromStart > 0)
                                 {
                                     $strVodTimeStamp = $this->secondsToVodTimeStamp($iDurationFromStart);
@@ -53,42 +51,67 @@ class StatsController extends Controller
                                 }
                             }
                         }
+                        $oChapter->vodUrl = $strVodUrl;
 
-                        $iChapterDuration = $oChapter->duration == 0 ? $dNow->diffInSeconds($dChapterStart) : $oChapter->duration;
+                        // Calc total chapter duration
+                        $iChapterDuration = $oChapter->duration == 0 ? $dNow->diffInSeconds($oChapter->created_at) : $oChapter->duration;
+                        $oChapter->durationTime = $this->secondsToTime($iChapterDuration, true);
 
-                        echo '<li>'. ($strVodUrl ? '<a href="'. $strVodUrl .'" target="blank">'. $oChapter->TwitchGame->name .'</a>' : $oChapter->TwitchGame->name) . ' ('.  $this->secondsToTime($iChapterDuration, true) .')'. ($oChapter->duration == 0 ? ' [Currently playing]' : '') . '</li>';
+                        // Calc game duration per stream
+                        if(isset($aStreamGames[$oChapter->game_id]))
+                        {
+                            $aStreamGames[$oChapter->game_id]->duration += $iChapterDuration;
+                            $aStreamGames[$oChapter->game_id]->durationTime = $this->secondsToTime($aStreamGames[$oChapter->game_id]->duration, true);
+                        }
+                        else
+                        {
+                            $aStreamGames[$oChapter->game_id] = (object) [
+                                'name' => $oChapter->TwitchGame->name,
+                                'duration' => $iChapterDuration,
+                                'img' => str_replace(['{width}', '{height}'], [150, 150], $oChapter->TwitchGame->box_art_url),
+                                'durationTime' => $this->secondsToTime($iChapterDuration, true)
+                            ];
+                        }
 
+                        // Calc total game duration
                         if(isset($aGames[$oChapter->game_id]))
                         {
                             $aGames[$oChapter->game_id]->duration += $iChapterDuration;
+                            $aGames[$oChapter->game_id]->durationTime = $this->secondsToTime($aGames[$oChapter->game_id]->duration, true);;
                         }
                         else
                         {
                             $aGames[$oChapter->game_id] = (object) [
                                 'name' => $oChapter->TwitchGame->name,
-                                'duration' => $iChapterDuration
+                                'duration' => $iChapterDuration,
+                                'img' => str_replace(['{width}', '{height}'], [150, 150], $oChapter->TwitchGame->box_art_url),
+                                'durationTime' => $this->secondsToTime($iChapterDuration, true)
                             ];
                         }
                     }
-                    echo '</ul>';
-
-                    if(!empty($aGames))
-                    {
-                        usort($aGames, function($a, $b) {
-                            return $a->duration < $b->duration;
-                        });
-
-                        echo 'Games:<ul>';
-                        foreach($aGames as $oGame)
-                        {
-                            echo '<li>'. $oGame->name . ' ('. $this->secondsToTime($oGame->duration, true) .') ('. $this->getPercentage($iStreamDuration, $oGame->duration) .'%)</li>';
-                        }
-                        echo '</ul>';
-                    }
                 }
-                echo '<hr>';
+                // Sort high->low duration
+                if(!empty($aStreamGames))
+                    $oStream->games = $this->sortDuration($aStreamGames);
             }
+            // Sort high->low duration
+            if(!empty($aGames))
+                $oUser->games = $this->sortDuration($aGames);
+
+            $oUser->totalDurationTime = $this->secondsToTime($iTotalStreamDuration, true);
         }
+
+        return view('channel.index', [
+            'user' => $oUser
+        ]);
+    }
+
+    public function sortDuration($array)
+    {
+        usort($array, function($a, $b) {
+            return $a->duration < $b->duration;
+        });
+        return $array;
     }
 
     public function getPercentage($iTotal, $iPart)
