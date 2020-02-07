@@ -45,19 +45,20 @@ class LoginController extends Controller
                     $oTwitchUser = TwitchUser::find($oUser->id);
                     if(!$oTwitchUser)
                     {
-                        $oWebhookHandler = new TwitchWebhookHandler();
+                        $oTwitchUser = TwitchUser::create([
+                            'id' => $oUser->id,
+                            'name' => $oUser->name
+                        ]);
+                    }
+
+                    // Check if webhook exists and renew if expired
+                    $oWebhookHandler = new TwitchWebhookHandler();
+                    if(!$oWebhookHandler->webhookExists($oWebhookHandler->getStreamChangedTopicUrl($oUser->id)))
+                    {
                         $oNewWebhook = $oWebhookHandler->createWebhook(
                             $oWebhookHandler->getStreamChangedTopicUrl($oUser->id),
                             $oWebhookHandler->getStreamChangedCallbackUrl($oUser->id)
                         );
-
-                        if($oNewWebhook)
-                        {
-                            TwitchUser::create([
-                                'id' => $oUser->id,
-                                'name' => $oUser->name
-                            ]);
-                        }
                     }
                     return redirect('stats/'. $oUser->id);
                 }

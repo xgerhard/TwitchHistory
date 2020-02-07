@@ -11,6 +11,22 @@ use Carbon\Carbon;
 
 class TwitchWebhookHandler
 {
+    public function webhookExists($strSearch, $bExpireCheck = true)
+    {
+        $oWebhook = Webhook::where('topic', $strSearch)->orWhere('callback', $strSearch)->first();
+        if($oWebhook)
+        {
+            if($bExpireCheck)
+            {
+                $oDate = Carbon::now();
+                if($oDate->gte($oWebhook->expires_at))
+                    return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
     public function createWebhook($strTopic, $strCallback, $strMode = 'subscribe', $iLeaseSeconds = 864000)
     {
         try
