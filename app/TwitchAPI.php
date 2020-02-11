@@ -133,7 +133,7 @@ class TwitchAPI
     {
         $aRequestHeaders = [
             'User-Agent' => '2g.be - xgerhard@2g.be',
-            'Client-ID' => ENV('TWITCH_CLIENT_ID'),
+            'Client-ID' => ENV('TWITCH_KEY'),
             'Content-Type' => 'application/json',
             'Accept' => 'application/json'
         ];
