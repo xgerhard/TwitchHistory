@@ -9,7 +9,7 @@ Let's see if there is a nice way to display this info, eventually maybe use it i
 ## How to join?
 While there is not much to see yet, sign in here, so the app can register webhooks for your account and start collecting historical stream data:
 
-https://twitchhistory.2g.be/login
+https://thistory.2g.be/login
 
 ## Development
 1. Get the repository: `git clone https://github.com/xgerhard/twitchhistory`
