@@ -92,7 +92,7 @@ class TwitchWebhookHandler
 
     public function getStreamChangedCallbackUrl($iUserId)
     {
-        return 'https://twitchhistory.2g.be/webhook/streamchanged/'. $iUserId;
+        return url('webhook/streamchanged/'. $iUserId);
     }
 
     public function getStreamChangedTopicUrl($iUserId)
