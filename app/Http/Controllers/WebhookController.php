@@ -8,6 +8,7 @@ use App\TwitchGame;
 use App\TwitchUser;
 use App\TwitchStream;
 use App\TwitchStreamChapter;
+use App\TwitchWebhookHandler;
 
 use Log;
 use Exception;
@@ -37,32 +38,18 @@ class WebhookController extends Controller
 
             if($oWebhooks->count() > 0)
             {
-                $iLease = 864000;
-                $oTwitchAPI = new TwitchAPI;
-                $oDate = Carbon::now();
-                $oDate->addSeconds($iLease);
-
                 Log::info('[Webhook check] '. $oWebhooks->count() .' webhooks are expiring soon..');
+                $oWebhookHandler = new TwitchWebhookHandler();
+
                 foreach($oWebhooks as $oWebhook)
                 {
                     $iUserId = explode('user_id=', $oWebhook->topic);
                     $iUserId = end($iUserId);
-
-                    $oRegisterWebhook = $oTwitchAPI->webhook([
-                        'hub.callback' => 'https://twitchhistory.2g.be/webhook/streamchanged/'. $iUserId,
-                        'hub.mode' => 'subscribe',
-                        'hub.topic' => 'https://api.twitch.tv/helix/streams?user_id='. $iUserId,
-                        'hub.lease_seconds' => $iLease,
-                        'hub.secret' => $oWebhook->secret
-                    ]);
-
-                    if($oRegisterWebhook)
-                    {
-                        $oWebhook->expires_at = $oDate;
-                        $oWebhook->lease_seconds = $iLease;
-                        $oWebhook->save();
-                        Log::info('[Webhook check] Webhook '. $oWebhook->id .' succesfully resubscribed');
-                    }
+    
+                    $oWebhookHandler->createWebhook(
+                        $oWebhookHandler->getStreamChangedTopicUrl($iUserId),
+                        $oWebhookHandler->getStreamChangedCallbackUrl($iUserId)
+                    );
                 }
             }
             else
