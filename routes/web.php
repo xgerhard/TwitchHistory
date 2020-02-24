@@ -11,10 +11,6 @@
 |
 */
 
-Route::get('/', function () {
-    return view('welcome');
-});
-
 Route::get('login', 'Auth\LoginController@redirectToProvider');
 Route::get('login/callback', 'Auth\LoginController@handleProviderCallback');
 
@@ -27,3 +23,5 @@ Route::get('webhook/test/{userId}', 'WebhookController@test');
 Route::get('webhook/check', 'WebhookController@checkWebhooks');
 Route::get('webhook/{method}/{userId}', 'WebhookController@challenge');
 Route::post('webhook/{method}/{userId}', 'WebhookController@parse');
+
+Route::any('/{any}', 'VueController@index')->where('any', '.*');
