@@ -12,14 +12,29 @@ const router = new VueRouter({
         {
             path: '/',
             name: 'home',
-            component: Home
+            component: Home,
+            meta: {
+                title: 'Home'
+            }
         },
         {
             path: '/about',
             name: 'about',
-            component: About
+            component: About,
+            meta: {
+                title: 'About'
+            }
         }
     ]
+});
+
+// Set page title
+router.beforeEach((to, from, next) => {
+    const title = to.matched.slice().reverse().find(r => r.meta && r.meta.title);
+    if(title)
+        document.title = title.meta.title;
+
+    next();
 });
 
 export default router;
