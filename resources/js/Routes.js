@@ -32,7 +32,7 @@ const router = new VueRouter({
 router.beforeEach((to, from, next) => {
     const title = to.matched.slice().reverse().find(r => r.meta && r.meta.title);
     if(title)
-        document.title = title.meta.title;
+        document.title = process.env.MIX_APP_NAME + ' - ' + title.meta.title;
 
     next();
 });
