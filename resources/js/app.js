@@ -10,6 +10,9 @@ import Routes from '@/js/routes.js';
 
 import Nav from '@/js/components/Nav';
 
+import moment from 'moment'
+Vue.prototype.moment = moment
+
 /**
  * The following block of code may be used to automatically register your
  * Vue components. It will recursively scan this directory for the Vue
