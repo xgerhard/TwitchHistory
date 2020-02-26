@@ -4,14 +4,23 @@
  * building robust, powerful web applications using Vue and Laravel.
  */
 
-import './bootstrap';
-import Vue from 'vue';
-import Routes from '@/js/routes.js';
+import './bootstrap'
+import Vue from 'vue'
+import Routes from '@/js/routes.js'
 
-import Nav from '@/js/components/Nav';
+import Nav from '@/js/components/Nav'
 
 import moment from 'moment'
 Vue.prototype.moment = moment
+
+import VueAxios from 'vue-axios'
+import { setupCache } from 'axios-cache-adapter'
+
+const cache = setupCache({
+  maxAge: 15 * 60 * 1000
+})
+Vue.use(VueAxios, axios)
+Vue.axios.defaults.adapter = cache.adapter
 
 /**
  * The following block of code may be used to automatically register your
