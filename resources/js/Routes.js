@@ -3,6 +3,7 @@ import VueRouter from 'vue-router';
 
 import Home from '@/js/components/Home';
 import About from '@/js/components/About';
+import Channel from '@/js/components/Channel';
 
 Vue.use(VueRouter);
 
@@ -24,7 +25,15 @@ const router = new VueRouter({
             meta: {
                 title: 'About'
             }
-        }
+        },
+        {
+            path: '/channel/:id',
+            name: 'channel',
+            component: Channel,
+            meta: {
+                title: 'Channel'
+            }
+        },
     ]
 });
 
