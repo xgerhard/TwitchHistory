@@ -24,4 +24,6 @@ Route::get('webhook/check', 'WebhookController@checkWebhooks');
 Route::get('webhook/{method}/{userId}', 'WebhookController@challenge');
 Route::post('webhook/{method}/{userId}', 'WebhookController@parse');
 
+Route::resource('api/channel', 'ChannelController');
+
 Route::any('/{any}', 'VueController@index')->where('any', '.*');
