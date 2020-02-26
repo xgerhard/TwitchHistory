@@ -10,9 +10,11 @@ import Routes from '@/js/routes.js'
 
 import Nav from '@/js/components/Nav'
 
+// MomentJS
 import moment from 'moment'
 Vue.prototype.moment = moment
 
+// Axios cache adapter
 import VueAxios from 'vue-axios'
 import { setupCache } from 'axios-cache-adapter'
 
@@ -21,6 +23,14 @@ const cache = setupCache({
 })
 Vue.use(VueAxios, axios)
 Vue.axios.defaults.adapter = cache.adapter
+
+// Bootstrap-vue
+import { BootstrapVue, IconsPlugin } from 'bootstrap-vue'
+import 'bootstrap/dist/css/bootstrap.css'
+import 'bootstrap-vue/dist/bootstrap-vue.css'
+
+Vue.use(BootstrapVue)
+Vue.use(IconsPlugin)
 
 /**
  * The following block of code may be used to automatically register your
