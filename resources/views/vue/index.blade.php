@@ -1,6 +1,7 @@
 @extends('master')
 
 @section('content')
-<router-view></router-view>
-
+<transition name="fade" mode="out-in" appear>
+    <router-view></router-view>
+</transition>
 @endsection

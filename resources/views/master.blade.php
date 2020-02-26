@@ -7,6 +7,15 @@
     <title>We vue now</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link href="{{ mix('css/app.css') }}" rel="stylesheet" type="text/css">
+    <style>
+    .fade-enter-active, .fade-leave-active {
+        transition: opacity 0.2s
+    }
+
+    .fade-enter, .fade-leave-active {
+        opacity: 0
+    }
+</style>
 </head>
 <body>
     <div id="app">
