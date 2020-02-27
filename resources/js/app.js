@@ -19,7 +19,7 @@ import VueAxios from 'vue-axios'
 import { setupCache } from 'axios-cache-adapter'
 
 const cache = setupCache({
-  maxAge: 15 * 60 * 1000
+    maxAge: 15 * 60 * 1000
 })
 Vue.use(VueAxios, axios)
 Vue.axios.defaults.adapter = cache.adapter
