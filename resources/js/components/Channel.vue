@@ -5,11 +5,11 @@
 
     <div v-else-if="channel">
         <h2>{{ channel.name }}</h2>
-        <div role="tablist" v-if="channel.twitch_streams[0]">
+        <div role="tablist" id="streams-list" v-if="channel.twitch_streams[0]">
             <b-card no-body v-for="(twitch_stream, twitch_stream_index) in channel.twitch_streams" v-bind:key="twitch_stream_index">
                 <b-card-header header-tag="header" class="p-1" role="tab">
                     <b-button block href="#" v-b-toggle="'accordion-' + twitch_stream_index" variant="dark">
-                        {{ twitch_stream.title }}
+                        <span class="collapse-stream-title">{{ twitch_stream.title }}</span>
                         <b-button size="sm" disabled pill variant="danger" v-if="twitch_stream.duration == 0">🔴LIVE</b-button>
                     </b-button>
                 </b-card-header>
@@ -55,6 +55,17 @@
 <style>
 .media-body {
     margin-top: 10px;
+}
+
+#streams-list header button {
+    position: absolute;
+    right: 5px;
+    top: 7px;
+    opacity: 1;
+}
+
+.collapse-stream-title {
+    white-space: nowrap;
 }
 </style>
 
