@@ -7,7 +7,10 @@
         <h2>Streamers</h2>
         <ul v-if="channels">
             <li v-for="channel in channels" v-bind:key="channel.id">
-                <router-link :to="{path: '/channel/' + channel.id}">{{ channel.name }}</router-link>
+                <router-link :to="{path: '/channel/' + channel.id}">
+                    {{ channel.name }}
+                    <b-button size="sm" disabled pill variant="danger" v-if="channel.is_live">🔴LIVE</b-button>
+                </router-link>
             </li>
         </ul>
     </div>
