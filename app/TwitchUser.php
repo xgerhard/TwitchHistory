@@ -12,6 +12,11 @@ class TwitchUser extends Model
         'is_live'
     ];
 
+    protected $hidden = [
+        'created_at',
+        'updated_at'
+    ];
+
     protected $fillable = [
         'id',
         'name'
