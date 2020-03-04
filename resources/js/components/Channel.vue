@@ -5,7 +5,19 @@
 
     <div v-else-if="channel">
         <h2>{{ channel.name }}</h2>
-        <div role="tablist" id="streams-list" v-if="channel.twitch_streams[0]">
+
+        <b-row cols="1" cols-sm="1" cols-md="1" cols-lg="2">
+            <b-col>
+                <b-card v-if="gamesChart" :title="gamesChart.title" :sub-title="gamesChart.subtitle">
+                    <b-card-text>
+                        <apexchart type="pie" :options="gamesChart.options" :series="gamesChart.series" style="width: 100%;"></apexchart>
+                    </b-card-text>
+                </b-card>
+            </b-col>
+            <b-col>test</b-col>
+        </b-row>
+
+        <div role="tablist" id="streams-list" v-if="channel.twitch_streams && channel.twitch_streams[0]">
             <b-card no-body v-for="(twitch_stream, twitch_stream_index) in channel.twitch_streams" v-bind:key="twitch_stream_index">
                 <b-card-header header-tag="header" class="p-1" role="tab">
                     <b-button block href="#" v-b-toggle="'accordion-' + twitch_stream_index" variant="dark">
@@ -67,6 +79,19 @@
 .collapse-stream-title {
     white-space: nowrap;
 }
+
+.apexcharts-tooltip-text-label {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.apexcharts-legend {
+    max-width: 250px;
+}
+
+.card {
+    max-width: 100%;
+}
 </style>
 
 <script>
@@ -74,17 +99,67 @@ export default {
     data () {
         return {
             channel: null,
-            loading: true
+            loading: true,
+            gamesChart: null
         }
     },
     mounted () {
-        axios.get('http://localhost:8080/api/channel/' + this.$route.params.id)
+        /*axios.get('http://localhost:8080/api/channel/' + this.$route.params.id)
             .then(response => {
                 this.channel = response.data;
                 this.loading = false;
 
                 // Update page title
                 document.title = document.title.replace('Channel', this.channel.name);
+            })
+            .catch(error => console.log(error))*/
+
+        axios.get('http://localhost:8080/api/channel/' + this.$route.params.id + '/stats')
+            .then(response => {
+                this.channel = response.data;
+                this.loading = false;
+
+                this.gamesChart = {
+                    title: 'Top games',
+                    subtitle: (this.channel.stats.top_games.length == 100 ? '100 ' : '') + 'most played games',
+                    series: this.channel.stats.top_games.map(top_game => top_game.duration),
+                    options: {
+                        chart: {
+                            type: 'pie',
+                            width: '100%'
+                        },
+                        labels: this.channel.stats.top_games.map(top_game => top_game.game.name + ': <strong>' + this.getDurationString(top_game.duration, true) + '</strong>'),
+                        fill: {
+                            type: 'image',
+                            opacity: 0.9,
+                            image: {
+                                src: this.channel.stats.top_games.map(top_game => this.getImgUrl(top_game.game.box_art_url, 250, 250))
+                            },
+                        },
+                        stroke: {
+                            width: 1
+                        },
+                        dataLabels: {
+                            enabled: false // text inside image
+                        },
+                        tooltip: {
+                            custom: function({ series, seriesIndex, dataPointIndex, w }) {
+                                return `
+                                <div class="apexcharts-tooltip-text">
+                                    <span class="apexcharts-tooltip-text-label">${w.globals.labels[seriesIndex]}</span>
+                                </div>`;
+                            }
+                        },
+                        responsive: [{
+                            breakpoint: 500,
+                            options: {
+                                legend: {
+                                    position: 'bottom'
+                                }
+                            }
+                        }]
+                    }
+                }
             })
             .catch(error => console.log(error))
     },
@@ -108,8 +183,8 @@ export default {
 
             return a.join(display ? ' ' : '');
         },
-        getImgUrl(url) {
-            return url.replace('{width}', 64).replace('{height}', 85)
+        getImgUrl(url, width = 64, height = 85) {
+            return url.replace('{width}', width).replace('{height}', height)
         },
         getVodUrl(vod_id, chapter_created_at, stream_created_at) {
             var url = 'https://www.twitch.tv/videos/' + vod_id;
