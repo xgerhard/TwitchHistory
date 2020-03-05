@@ -145,6 +145,7 @@ export default {
                 this.channel = response.data;
                 this.loading = false;
 
+                document.title = document.title.replace('Channel', this.channel.name);
                 this.gamesChart = {
                     title: 'Top games',
                     subtitle: (this.channel.stats.top_games.length == 100 ? '100 ' : '') + 'most played games',
