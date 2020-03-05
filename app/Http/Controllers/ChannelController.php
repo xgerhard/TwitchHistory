@@ -30,7 +30,7 @@ class ChannelController extends Controller
     public function stats(Request $request, $iChannelId)
     { 
         $strTimeFrame = 'week';
-        $aTimeFrames = ['week', 'month', '6-month', 'year'];
+        $aTimeFrames = ['week', 'month', '3-month', '6-month', 'year'];
 
         if($request->has('period') && in_array($request->get('period'), $aTimeFrames))
             $strTimeFrame = $request->get('period');
@@ -44,6 +44,10 @@ class ChannelController extends Controller
 
             case 'month':
                 $dFrom = Carbon::now()->subMonth();
+            break;
+
+            case '3-month':
+                $dFrom = Carbon::now()->subMonths(3);
             break;
 
             case '6-month':

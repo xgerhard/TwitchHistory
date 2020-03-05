@@ -34,6 +34,14 @@ const router = new VueRouter({
                 title: 'Channel'
             }
         },
+        {
+            path: '/channel/:id/:period',
+            name: 'channel',
+            component: Channel,
+            meta: {
+                title: 'Channel'
+            }
+        },
     ]
 });
 

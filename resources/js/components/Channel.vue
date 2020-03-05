@@ -14,7 +14,11 @@
                     </b-card-text>
                 </b-card>
             </b-col>
-            <b-col>test</b-col>
+            <b-col>
+                <select name="periodSwitch" @change="periodSwitch()" class="form-control" v-model="period">
+                    <option v-for="(displayValue, value) in periodTypes" v-bind:key="value" :value="value" :selected="value == period">{{ displayValue}}</option>
+                </select>
+            </b-col>
         </b-row>
 
         <div role="tablist" id="streams-list" v-if="channel.twitch_streams && channel.twitch_streams[0]">
@@ -87,6 +91,7 @@
 
 .apexcharts-legend {
     max-width: 250px;
+    top: 0!important;
 }
 
 .card {
@@ -100,7 +105,16 @@ export default {
         return {
             channel: null,
             loading: true,
-            gamesChart: null
+            gamesChart: null,
+            period: 'week',
+            periodTypes: {
+                week: 'Week',
+                month: 'Month',
+                '3-month': '3 months',
+                // Since we only have 3 months of data so far.. uncomment these later
+                // '6-month': '6 months',
+                // year: 'Year'
+            }
         }
     },
     mounted () {
@@ -114,8 +128,20 @@ export default {
             })
             .catch(error => console.log(error))*/
 
-        axios.get('http://localhost:8080/api/channel/' + this.$route.params.id + '/stats')
-            .then(response => {
+        var period = this.$route.params.period;
+        if(period && this.periodTypes.hasOwnProperty(period)) {
+            this.period = period;
+        }
+        this.getChannelStats(this.$route.params.id, this.period)
+    },
+    methods: {
+        periodSwitch: function() {
+            this.getChannelStats(this.$route.params.id, this.period)
+            this.$router.push({ path: `/channel/${this.$route.params.id}/${this.period}` })
+        },
+        getChannelStats(channelId, period = 'week') {
+            this.loading = true;
+            axios.get('http://localhost:8080/api/channel/' + channelId + '/stats?period=' + period).then(response => {
                 this.channel = response.data;
                 this.loading = false;
 
@@ -161,9 +187,8 @@ export default {
                     }
                 }
             })
-            .catch(error => console.log(error))
-    },
-    methods: {
+            .catch(error => console.log(error))   
+        },
         getLocalDateString(date) {
             return this.moment.utc(date).local().format('DD MMM HH:mm')
         },
