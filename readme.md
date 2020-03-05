@@ -18,8 +18,10 @@ https://thistory.2g.be/login
 4. Run `php artisan key:generate` to set an app key
 5. Run `php artisan migrate` to install the required tables
 6. Run `php artisan db:seed` to seed the tables with test data
-7. Start a local webserver: `php -S localhost:8080`
-8. The test data should now be available at: localhost:8080/stats/49056910
+7. Run `npm install` to install dependencies
+8. Run `npm run watch` to watch for file changes (or `npm run dev/prod`), and to build the frontend Vue app
+9. Start a local webserver: `php -S localhost:8080`
+10. The app can now be accessed at: `localhost:8080`
 
 To use the Twitch API and/or Twitch OAuth login, you'll have to register an app at: https://dev.twitch.tv/
 And add these variables to your .env file:
