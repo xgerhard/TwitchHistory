@@ -14,6 +14,15 @@ class ChannelController extends Controller
         return response(TwitchUser::orderBy('name', 'ASC')->with('LastTwitchStream')->get()->jsonSerialize(), Response::HTTP_OK);
     }
 
+    public function search(Request $request, $strChannel)
+    {
+        $oUser = TwitchUser::where('name', 'like', $strChannel .'%')->first();
+        if($oUser)
+            return response()->json($oUser);
+        else
+            return response('', Response::HTTP_NOT_FOUND);
+    }
+
     public function show($id)
     {
         return response(
